@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-    <title>منتج سكانر - تحليل المنتجات بالذكاء الاصطناعي</title>
+    <!-- هذه الميتا تاغ ضرورية لـ Kodular -->
+    <meta name="format-detection" content="telephone=no">
+    <meta name="msapplication-tap-highlight" content="no">
+    <title>منتج سكانر - تحليل المنتجات</title>
     <style>
         * {
             margin: 0;
@@ -12,7 +15,7 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', 'Tahoma', 'Arial', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
@@ -23,7 +26,6 @@
             margin: 0 auto;
         }
 
-        /* Header */
         .header {
             text-align: center;
             color: white;
@@ -40,7 +42,6 @@
             font-size: 14px;
         }
 
-        /* بطاقات */
         .card {
             background: white;
             border-radius: 20px;
@@ -49,13 +50,13 @@
             box-shadow: 0 10px 40px rgba(0,0,0,0.1);
         }
 
-        /* منطقة الكاميرا */
         .scanner-container {
             position: relative;
             width: 100%;
             border-radius: 15px;
             overflow: hidden;
             background: #000;
+            min-height: 300px;
         }
 
         video {
@@ -86,11 +87,10 @@
         }
 
         @keyframes pulse {
-            0%, 100% { border-color: #4CAF50; }
-            50% { border-color: #FF9800; }
+            0%, 100% { border-color: #4CAF50; transform: scale(1); }
+            50% { border-color: #FF9800; transform: scale(1.02); }
         }
 
-        /* أزرار */
         .btn {
             width: 100%;
             padding: 15px;
@@ -99,7 +99,8 @@
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform 0.2s;
+            margin-top: 10px;
         }
 
         .btn:active {
@@ -114,7 +115,6 @@
         .btn-secondary {
             background: #f0f0f0;
             color: #333;
-            margin-top: 10px;
         }
 
         .btn-danger {
@@ -122,7 +122,6 @@
             color: white;
         }
 
-        /* مؤشر التحميل */
         .loading {
             text-align: center;
             padding: 40px;
@@ -143,7 +142,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* نتيجة المنتج */
         .product-name {
             font-size: 22px;
             font-weight: bold;
@@ -195,14 +193,12 @@
             font-size: 14px;
         }
 
-        /* سجل المنتجات */
         .history-item {
             padding: 12px;
             background: #f8f9fa;
             border-radius: 10px;
             margin-bottom: 10px;
             cursor: pointer;
-            transition: background 0.2s;
         }
 
         .history-item:active {
@@ -220,25 +216,15 @@
             margin-top: 5px;
         }
 
-        /* رسائل */
-        .message {
+        .message-error {
+            background: #ffebee;
+            color: #c62828;
             padding: 12px;
             border-radius: 10px;
             margin-top: 15px;
             text-align: center;
         }
 
-        .message-error {
-            background: #ffebee;
-            color: #c62828;
-        }
-
-        .message-success {
-            background: #e8f5e9;
-            color: #2e7d32;
-        }
-
-        /* تبويبات */
         .tabs {
             display: flex;
             gap: 10px;
@@ -253,7 +239,6 @@
             border-radius: 12px;
             color: white;
             cursor: pointer;
-            transition: all 0.3s;
         }
 
         .tab.active {
@@ -264,6 +249,16 @@
         .hide {
             display: none;
         }
+
+        /* رسالة الخطأ للكاميرا */
+        .camera-error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            margin: 20px 0;
+        }
     </style>
 </head>
 <body>
@@ -273,7 +268,6 @@
             <p>امسح الباركود لتحليل المنتج والمواد الضارة</p>
         </div>
 
-        <!-- التبويبات -->
         <div class="tabs">
             <div class="tab active" onclick="switchTab('scanner')">📷 مسح</div>
             <div class="tab" onclick="switchTab('history')">📜 السجل</div>
@@ -283,17 +277,18 @@
         <div id="scannerTab">
             <div class="card">
                 <div class="scanner-container" id="scannerContainer">
-                    <video id="video" autoplay playsinline></video>
+                    <video id="video" autoplay playsinline muted></video>
                     <div class="scanner-overlay">
                         <div class="scan-frame"></div>
                     </div>
                 </div>
-                <button class="btn btn-primary" id="startScannerBtn" onclick="startScanner()" style="margin-top: 15px;">
+                <button class="btn btn-primary" id="startScannerBtn" onclick="requestCameraAndStart()" style="margin-top: 15px;">
                     ▶️ تشغيل الكاميرا
                 </button>
                 <button class="btn btn-secondary" onclick="stopScanner()">
                     ⏹️ إيقاف الكاميرا
                 </button>
+                <div id="cameraStatus" style="margin-top: 10px; font-size: 12px; text-align: center; color: #666;"></div>
             </div>
         </div>
 
@@ -312,18 +307,16 @@
         <!-- شاشة النتيجة -->
         <div id="resultCard" class="card hide">
             <div id="resultContent"></div>
-            <button class="btn btn-secondary" onclick="closeResult()">
-                ✖️ إغلاق
-            </button>
+            <button class="btn btn-secondary" onclick="closeResult()">✖️ إغلاق</button>
         </div>
     </div>
 
     <script>
         // ======================
-        // 1. إعدادات API
+        // 1. إعدادات API 🔑
         // ======================
-        // 🔴 مهم: استبدل هذا المفتاح بمفتاح Gemini الخاص بك
-        // للحصول على مفتاح مجاني: https://aistudio.google.com/app/apikey
+        // ⚠️ مهم: استبدل هذا المفتاح بمفتاح Gemini API الخاص بك
+        // احصل على مفتاح مجاني من: https://aistudio.google.com/app/apikey
         const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
         
         // ======================
@@ -332,71 +325,178 @@
         let videoStream = null;
         let scanningActive = false;
         let scanTimeout = null;
-        
-        // سجل المنتجات (تخزين محلي)
         let scanHistory = [];
         
         // ======================
-        // 3. تحميل السجل المحفوظ
+        // 3. طلب صلاحية الكاميرا (مصمم خصيصاً لـ Kodular)
         // ======================
-        function loadHistory() {
-            const saved = localStorage.getItem('productScanHistory');
-            if (saved) {
-                scanHistory = JSON.parse(saved);
-                renderHistory();
+        async function requestCameraPermission() {
+            const statusDiv = document.getElementById('cameraStatus');
+            statusDiv.innerHTML = '⏳ جاري طلب صلاحية الكاميرا...';
+            
+            try {
+                // طريقة 1: الطلب المباشر
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                
+                // إيقاف المسار فوراً بعد الحصول على الصلاحية
+                stream.getTracks().forEach(track => track.stop());
+                statusDiv.innerHTML = '✅ صلاحية الكاميرا تم منحها بنجاح';
+                statusDiv.style.color = '#4CAF50';
+                return true;
+                
+            } catch (err) {
+                console.error('Camera permission error:', err);
+                
+                if (err.name === 'NotAllowedError') {
+                    statusDiv.innerHTML = '❌ تم رفض صلاحية الكاميرا. الرجاء منح الصلاحية من إعدادات الهاتف';
+                } else if (err.name === 'NotFoundError') {
+                    statusDiv.innerHTML = '❌ لا توجد كاميرا على هذا الجهاز';
+                } else {
+                    statusDiv.innerHTML = '❌ خطأ في الكاميرا: ' + err.message;
+                }
+                statusDiv.style.color = '#c62828';
+                return false;
             }
         }
         
-        function saveHistory() {
-            localStorage.setItem('productScanHistory', JSON.stringify(scanHistory));
-            renderHistory();
+        // ======================
+        // 4. تشغيل الكاميرا مع طلب الصلاحية
+        // ======================
+        async function requestCameraAndStart() {
+            const hasPermission = await requestCameraPermission();
+            if (hasPermission) {
+                startScanner();
+            } else {
+                alert('لا يمكن تشغيل الكاميرا بدون صلاحية. الرجاء منح صلاحية الكاميرا من إعدادات الهاتف.');
+            }
         }
         
-        function renderHistory() {
-            const historyDiv = document.getElementById('historyList');
-            if (!historyDiv) return;
+        async function startScanner() {
+            if (scanningActive) {
+                stopScanner();
+            }
             
-            if (scanHistory.length === 0) {
-                historyDiv.innerHTML = '<p style="text-align: center; color: #999;">لا يوجد منتجات ممسوحة ضوئياً بعد</p>';
+            const statusDiv = document.getElementById('cameraStatus');
+            statusDiv.innerHTML = '🔄 جاري تشغيل الكاميرا...';
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' }
+                });
+                
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                videoStream = stream;
+                scanningActive = true;
+                statusDiv.innerHTML = '📷 الكاميرا تعمل - وجه الكاميرا نحو الباركود';
+                statusDiv.style.color = '#4CAF50';
+                
+                // بدء مسح الباركود بعد تأكد تشغيل الفيديو
+                video.onloadedmetadata = () => {
+                    video.play();
+                    startBarcodeDetection();
+                };
+                
+            } catch (err) {
+                statusDiv.innerHTML = '❌ فشل تشغيل الكاميرا: ' + err.message;
+                statusDiv.style.color = '#c62828';
+                console.error('Start scanner error:', err);
+            }
+        }
+        
+        function stopScanner() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+            scanningActive = false;
+            if (scanTimeout) clearTimeout(scanTimeout);
+            
+            const video = document.getElementById('video');
+            if (video) video.srcObject = null;
+            
+            const statusDiv = document.getElementById('cameraStatus');
+            statusDiv.innerHTML = '⏹️ الكاميرا متوقفة';
+            statusDiv.style.color = '#666';
+        }
+        
+        // ======================
+        // 5. مسح الباركود
+        // ======================
+        function startBarcodeDetection() {
+            if (!scanningActive) return;
+            
+            const video = document.getElementById('video');
+            if (video.readyState !== 4 || video.videoWidth === 0) {
+                scanTimeout = setTimeout(startBarcodeDetection, 500);
                 return;
             }
             
-            historyDiv.innerHTML = scanHistory.slice().reverse().map(item => `
-                <div class="history-item" onclick="viewHistoryProduct(${item.id})">
-                    <div class="history-product">${item.product_name || 'منتج غير معروف'}</div>
-                    <div class="history-date">${item.date} • باركود: ${item.barcode}</div>
-                    ${item.warnings && item.warnings.length > 0 ? '<div style="color: #ff9800; font-size: 12px; margin-top: 5px;">⚠️ يحتوي على تحذيرات</div>' : ''}
-                </div>
-            `).join('');
+            scanBarcodeFrame();
         }
         
-        function viewHistoryProduct(id) {
-            const product = scanHistory.find(p => p.id === id);
-            if (product) {
-                displayResult(product);
+        function scanBarcodeFrame() {
+            if (!scanningActive) {
+                scanTimeout = setTimeout(scanBarcodeFrame, 200);
+                return;
             }
-        }
-        
-        function clearHistory() {
-            if (confirm('هل أنت متأكد من مسح جميع المنتجات من السجل؟')) {
-                scanHistory = [];
-                saveHistory();
-                closeResult();
+            
+            const video = document.getElementById('video');
+            if (!video.videoWidth) {
+                scanTimeout = setTimeout(scanBarcodeFrame, 200);
+                return;
             }
-        }
-        
-        function addToHistory(productData) {
-            const newProduct = {
-                ...productData,
-                id: Date.now(),
-                date: new Date().toLocaleString('ar-SA')
-            };
-            scanHistory.push(newProduct);
-            saveHistory();
+            
+            // إنشاء canvas لالتقاط الإطار
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // استخدام BarcodeDetector API
+            if ('BarcodeDetector' in window) {
+                const barcodeDetector = new BarcodeDetector({ 
+                    formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code', 'codabar', 'itf'] 
+                });
+                
+                barcodeDetector.detect(canvas)
+                    .then(barcodes => {
+                        if (barcodes.length > 0) {
+                            const barcode = barcodes[0].rawValue;
+                            if (barcode && barcode.length > 3) {
+                                console.log('✅ تم مسح الباركود:', barcode);
+                                stopScanner();
+                                processBarcode(barcode);
+                                return;
+                            }
+                        }
+                        scanTimeout = setTimeout(scanBarcodeFrame, 300);
+                    })
+                    .catch(err => {
+                        console.log('Barcode detection error:', err);
+                        scanTimeout = setTimeout(scanBarcodeFrame, 300);
+                    });
+            } else {
+                // للمتصفحات القديمة - إدخال يدوي
+                const manualBarcode = prompt('المتصفح لا يدعم المسح التلقائي. الرجاء إدخال رقم الباركود يدوياً:');
+                if (manualBarcode && manualBarcode.length > 3) {
+                    stopScanner();
+                    processBarcode(manualBarcode);
+                } else {
+                    scanTimeout = setTimeout(scanBarcodeFrame, 1000);
+                }
+            }
         }
         
         // ======================
-        // 4. البحث في Open Food Facts (مجاني واحتياطي)
+        // 6. البحث في Open Food Facts
         // ======================
         async function searchOpenFoodFacts(barcode) {
             try {
@@ -405,11 +505,15 @@
                 
                 if (data.status === 1) {
                     const product = data.product;
-                    const ingredients = product.ingredients_text_ar || product.ingredients_text || '';
-                    const ingredientsList = ingredients.split(',').map(i => i.trim()).filter(i => i);
+                    let ingredients = product.ingredients_text_ar || product.ingredients_text || '';
+                    let ingredientsList = [];
                     
-                    // كلمات مفتاحية للمواد الضارة
-                    const harmfulKeywords = ['سكر مضاف', 'زيت مهدرج', 'جلوتامات', 'أسبارتام', 'بنزوات', 'سوربات', 'بارابين', 'سلفات'];
+                    if (ingredients) {
+                        ingredientsList = ingredients.split(',').map(i => i.trim()).filter(i => i);
+                    }
+                    
+                    // كشف المواد الضارة
+                    const harmfulKeywords = ['سكر مضاف', 'زيت مهدرج', 'جلوتامات', 'أسبارتام', 'بنزوات', 'سوربات', 'بارابين', 'سلفات', 'صبغة صناعية', 'نكهات صناعية'];
                     const warnings = [];
                     
                     for (const keyword of harmfulKeywords) {
@@ -419,14 +523,21 @@
                     }
                     
                     if (warnings.length === 0 && ingredients) {
-                        warnings.push('✅ لم يتم اكتشاف مواد ضارة واضحة');
+                        warnings.push('✅ لم يتم اكتشاف مواد ضارة واضحة في قاعدة البيانات');
                     }
+                    
+                    let category = 'منتج عام';
+                    const categories = JSON.stringify(product.categories_tags || []).toLowerCase();
+                    if (categories.includes('cosmetic') || categories.includes('beauty')) category = 'تجميلي';
+                    else if (categories.includes('medicine') || categories.includes('health')) category = 'دوائي';
+                    else if (categories.includes('food') || categories.includes('drink')) category = 'غذائي';
                     
                     return {
                         product_name: product.product_name_ar || product.product_name || 'منتج غير معروف',
-                        ingredients: ingredientsList.length ? ingredientsList : [ingredients],
+                        ingredients: ingredientsList.length ? ingredientsList : [ingredients || 'لا توجد معلومات'],
                         warnings: warnings,
-                        category: determineCategory(product.categories_tags || [])
+                        category: category,
+                        source: 'Open Food Facts'
                     };
                 }
                 return null;
@@ -436,64 +547,52 @@
             }
         }
         
-        function determineCategory(categories) {
-            const catsStr = JSON.stringify(categories).toLowerCase();
-            if (catsStr.includes('cosmetic') || catsStr.includes('beauty')) return 'تجميلي';
-            if (catsStr.includes('medicine') || catsStr.includes('health')) return 'دوائي';
-            if (catsStr.includes('food') || catsStr.includes('drink')) return 'غذائي';
-            return 'منتج عام';
-        }
-        
         // ======================
-        // 5. الاتصال بـ Gemini API
+        // 7. تحليل Gemini
         // ======================
-        async function analyzeWithGemini(barcode, productHint = '') {
+        async function analyzeWithGemini(barcode) {
             if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
                 throw new Error('الرجاء إضافة مفتاح Gemini API الصحيح في الكود');
             }
             
-            const prompt = `أنت خبير تحليل منتجات. قم بتحليل المنتج ذو الباركود: ${barcode}
-            ${productHint ? `(معلومات إضافية: ${productHint})` : ''}
+            const prompt = `أنت خبير تحليل منتجات. المنتج رقم باركوده: ${barcode}
             
-            قم بإرجاع JSON فقط بالشكل التالي، بدون أي كلام إضافي:
-            {
-                "product_name": "اسم المنتج بالعربية",
-                "ingredients": ["مكون1", "مكون2", "مكون3"],
-                "warnings": ["تحذير عن أي مادة ضارة أو مسببة للحساسية"],
-                "category": "غذائي أو تجميلي أو دوائي"
-            }
-            
-            إذا كان منتج غذائي، حذر من السكر المضاف، الزيوت المهدرجة، المواد الحافظة.
-            إذا كان منتج تجميلي، حذر من البارابين، السلفات، العطور الصناعية.
-            إذا كان دوائي، حذر من الآثار الجانبية المحتملة.`;
+قم بتحليل هذا المنتج وأعد JSON فقط بالشكل التالي، بدون أي كلام إضافي:
+{
+    "product_name": "اسم المنتج المتوقع بالعربية",
+    "ingredients": ["مكون1", "مكون2", "مكون3"],
+    "warnings": ["تحذير عن أي مادة ضارة أو مسببة للحساسية"],
+    "category": "غذائي أو تجميلي أو دوائي"
+}
+
+ملاحظات:
+- إذا كان غذائي: حذر من السكر المضاف، الزيوت المهدرجة، المواد الحافظة
+- إذا كان تجميلي: حذر من البارابين، السلفات، العطور الصناعية
+- إذا كان دوائي: حذر من الآثار الجانبية المحتملة`;
             
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': application/json },
                 body: JSON.stringify({
-                    contents: [{
-                        parts: [{ text: prompt }]
-                    }]
+                    contents: [{ parts: [{ text: prompt }] }]
                 })
             });
             
             const data = await response.json();
             
-            if (data.error) {
-                throw new Error(data.error.message);
-            }
+            if (data.error) throw new Error(data.error.message);
             
             const text = data.candidates[0].content.parts[0].text;
-            // تنظيف النص من أي علامات markdown
             const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            return JSON.parse(cleanJson);
+            const result = JSON.parse(cleanJson);
+            result.source = 'الذكاء الاصطناعي Gemini';
+            return result;
         }
         
         // ======================
-        // 6. معالجة الباركود (الخطوات المتكاملة)
+        // 8. معالجة الباركود
         // ======================
         async function processBarcode(barcode) {
-            // إظهار شاشة التحميل
             const resultDiv = document.getElementById('resultContent');
             resultDiv.innerHTML = `
                 <div class="loading">
@@ -508,29 +607,23 @@
                 let productData = null;
                 
                 // الخطوة 1: البحث في Open Food Facts
-                const offData = await searchOpenFoodFacts(barcode);
+                productData = await searchOpenFoodFacts(barcode);
                 
-                if (offData) {
-                    productData = offData;
-                    productData.source = 'Open Food Facts';
-                } else {
-                    // الخطوة 2: استخدام الذكاء الاصطناعي
+                // الخطوة 2: إذا لم يوجد، استخدام Gemini
+                if (!productData) {
                     productData = await analyzeWithGemini(barcode);
-                    productData.source = 'الذكاء الاصطناعي (Gemini)';
                 }
                 
-                // إضافة الباركود للبيانات
                 productData.barcode = barcode;
                 
                 // حفظ في السجل
                 addToHistory(productData);
                 
-                // عرض النتيجة
                 displayResult(productData);
                 
             } catch (error) {
                 resultDiv.innerHTML = `
-                    <div class="message message-error">
+                    <div class="message-error">
                         ❌ خطأ: ${error.message}<br>
                         <small>يرجى التحقق من اتصال الإنترنت ومفتاح API</small>
                     </div>
@@ -553,7 +646,7 @@
                                  (product.category === 'تجميلي' ? 'category-cosmetic' : 'category-medicine');
             
             resultDiv.innerHTML = `
-                <div class="product-name">${product.product_name}</div>
+                <div class="product-name">${escapeHtml(product.product_name)}</div>
                 <div class="category ${categoryClass}">📂 ${product.category || 'غير محدد'}</div>
                 <div style="font-size: 12px; color: #999; margin-bottom: 10px;">
                     🔍 المصدر: ${product.source || 'تحليل ذكاء اصطناعي'} • باركود: ${product.barcode}
@@ -577,108 +670,79 @@
             `;
         }
         
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // ======================
+        // 9. السجل المحلي
+        // ======================
+        function loadHistory() {
+            const saved = localStorage.getItem('productScanHistory');
+            if (saved) {
+                scanHistory = JSON.parse(saved);
+                renderHistory();
+            }
+        }
+        
+        function saveHistory() {
+            localStorage.setItem('productScanHistory', JSON.stringify(scanHistory));
+            renderHistory();
+        }
+        
+        function renderHistory() {
+            const historyDiv = document.getElementById('historyList');
+            if (!historyDiv) return;
+            
+            if (scanHistory.length === 0) {
+                historyDiv.innerHTML = '<p style="text-align: center; color: #999;">لا يوجد منتجات ممسوحة ضوئياً بعد</p>';
+                return;
+            }
+            
+            historyDiv.innerHTML = [...scanHistory].reverse().map(item => `
+                <div class="history-item" onclick="viewHistoryProduct(${item.id})">
+                    <div class="history-product">${escapeHtml(item.product_name || 'منتج غير معروف')}</div>
+                    <div class="history-date">${item.date} • باركود: ${item.barcode}</div>
+                    ${item.warnings && item.warnings.length > 0 ? '<div style="color: #ff9800; font-size: 12px; margin-top: 5px;">⚠️ يحتوي على تحذيرات</div>' : ''}
+                </div>
+            `).join('');
+        }
+        
+        function viewHistoryProduct(id) {
+            const product = scanHistory.find(p => p.id === id);
+            if (product) {
+                displayResult(product);
+                document.getElementById('resultCard').classList.remove('hide');
+                switchTab('scanner');
+            }
+        }
+        
+        function addToHistory(productData) {
+            const newProduct = {
+                ...productData,
+                id: Date.now(),
+                date: new Date().toLocaleString('ar-SA')
+            };
+            scanHistory.push(newProduct);
+            saveHistory();
+        }
+        
+        function clearHistory() {
+            if (confirm('هل أنت متأكد من مسح جميع المنتجات من السجل؟')) {
+                scanHistory = [];
+                saveHistory();
+                closeResult();
+            }
+        }
+        
         function closeResult() {
             document.getElementById('resultCard').classList.add('hide');
         }
         
         // ======================
-        // 7. مسح الباركود بالكاميرا
-        // ======================
-        async function startScanner() {
-            if (scanningActive) return;
-            
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment' } // الكاميرا الخلفية
-                });
-                
-                const video = document.getElementById('video');
-                video.srcObject = stream;
-                videoStream = stream;
-                scanningActive = true;
-                
-                // بدء مسح الباركود
-                startBarcodeDetection();
-                
-            } catch (err) {
-                alert('لا يمكن الوصول إلى الكاميرا: ' + err.message);
-            }
-        }
-        
-        function stopScanner() {
-            if (videoStream) {
-                videoStream.getTracks().forEach(track => track.stop());
-                videoStream = null;
-            }
-            scanningActive = false;
-            if (scanTimeout) clearTimeout(scanTimeout);
-        }
-        
-        function startBarcodeDetection() {
-            if (!scanningActive) return;
-            
-            const video = document.getElementById('video');
-            if (video.readyState !== 4 || video.videoWidth === 0) {
-                scanTimeout = setTimeout(startBarcodeDetection, 500);
-                return;
-            }
-            
-            // استخدام مكتبة jsBarcodeReader مدمجة
-            scanBarcodeFromVideo();
-        }
-        
-        // مكتبة بسيطة لقراءة الباركود
-        function scanBarcodeFromVideo() {
-            if (!scanningActive) {
-                scanTimeout = setTimeout(scanBarcodeFromVideo, 100);
-                return;
-            }
-            
-            const video = document.getElementById('video');
-            if (!video.videoWidth) {
-                scanTimeout = setTimeout(scanBarcodeFromVideo, 200);
-                return;
-            }
-            
-            // رسم الإطار على Canvas للتحليل
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // استخدام BarcodeDetector API (متوفر في المتصفحات الحديثة)
-            if ('BarcodeDetector' in window) {
-                const barcodeDetector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'] });
-                
-                barcodeDetector.detect(canvas)
-                    .then(barcodes => {
-                        if (barcodes.length > 0) {
-                            const barcode = barcodes[0].rawValue;
-                            console.log('تم مسح الباركود:', barcode);
-                            stopScanner();
-                            processBarcode(barcode);
-                            return;
-                        }
-                        // استمرار المسح
-                        scanTimeout = setTimeout(scanBarcodeFromVideo, 200);
-                    })
-                    .catch(() => {
-                        scanTimeout = setTimeout(scanBarcodeFromVideo, 200);
-                    });
-            } else {
-                // للمتصفحات التي لا تدعم BarcodeDetector
-                alert('المتصفح لا يدعم مسح الباركود تلقائياً. الرجاء إدخال الرمز يدوياً.');
-                const manualBarcode = prompt('الرجاء إدخال رقم الباركود يدوياً:');
-                if (manualBarcode) {
-                    stopScanner();
-                    processBarcode(manualBarcode);
-                }
-            }
-        }
-        
-        // ======================
-        // 8. التبديل بين التبويبات
+        // 10. التبويبات
         // ======================
         function switchTab(tab) {
             const scannerTab = document.getElementById('scannerTab');
@@ -703,14 +767,18 @@
         }
         
         // ======================
-        // 9. تحميل اولي
+        // 11. التشغيل الأولي
         // ======================
         loadHistory();
         
-        // إيقاف الكاميرا عند إغلاق الصفحة
         window.addEventListener('beforeunload', () => {
             stopScanner();
         });
+        
+        // محاولة طلب الصلاحية عند تحميل الصفحة (لـ Kodular)
+        setTimeout(() => {
+            requestCameraPermission();
+        }, 500);
     </script>
 </body>
 </html>
